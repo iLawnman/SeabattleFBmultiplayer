@@ -1,0 +1,390 @@
+<!--
+  Copyright (c) 2017-present, Facebook, Inc.
+  All rights reserved.
+
+  This source code is licensed under the license found in the
+  LICENSE file in the root directory of this source tree.
+-->
+
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="full-screen" content="yes" />
+  <meta name="screen-orientation" content="portrait" />
+  <meta name="viewport" content="user-scalable=no" />
+  <link href="css/style.css" rel="stylesheet" type="text/css" />
+  <title>Unity WebGL Player | SeaBattle3D</title>
+  <link rel="shortcut icon" href="TemplateData/favicon.ico">
+  <link rel="stylesheet" href="TemplateData/style.css">
+</head>
+
+<body>
+
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas"></canvas>
+    <div id="unity-loading-bar">
+      <div id="unity-logo"></div>
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <pre id="data" class="output">(Empty)</pre>
+  </header>
+  <section id="pre-game">
+    <style>
+      h3 {
+        color: red;
+        text-align: center;
+      }
+    </style>
+    <h3>SELECT PLAY</h3>
+    <input type="button" onclick="playFriend();" value="with Friend" />
+    <input type="button" onclick="playRandom();" value="with Random" />
+    <input type="button" onclick="playBot();" value="with Bot" />
+    <!-- <br>
+    <input type="button" onclick="sendTurn(DATA_TO_SEND);" value="Send Turn" /> -->
+
+    <section id="send-section">
+      <table>
+        <tr>
+          <th>Context ID</th>
+          <td id="context-id">...</td>
+        </tr>
+        <tr>
+          <th>Context Type</th>
+          <td id="context-type">...</td>
+        </tr>
+      </table>
+    </section>
+
+    <section>
+      <p id="display-message" class="output"></p>
+      <p id="display-success" class="success"></p>
+      <p id="display-error" class="error"></p>
+    </section>
+</body>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<!-- build:js -->
+<!-- endbuild -->
+<script src="js/data.js"></script>
+<script src="js/display.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+<script src="https://connect.facebook.net/en_US/fbinstant.6.3.js"></script>
+<script type="text/javascript">
+
+
+
+  // You can clone a fully functional backend for this project at https://glitch.com/edit/#!/panoramic-tendency
+  // Alternatively, you can find the working server-side code at the folder server-examples/nodejs-backend
+  //const BACKEND_URL = 'https://sbgame-backend.herokuapp.com';
+  //const DATA_TO_STORE = { 'meaning': 42 };
+  //const DATA_TO_SEND = { "x": 1, "y": 1, "z": 1 };
+  //const backendClient = window.backendClient;
+  const display = window.Display;
+
+  var socket;
+  var contextId;
+  var curOpponentId;
+
+  //UnityInstance init
+  var buildUrl = "Build";
+  var loaderUrl = buildUrl + "/seabattle3dfacebook.loader.js";
+  var config = {
+    dataUrl: buildUrl + "/seabattle3dfacebook.data",
+    frameworkUrl: buildUrl + "/seabattle3dfacebook.framework.js",
+    codeUrl: buildUrl + "/seabattle3dfacebook.wasm",
+    streamingAssetsUrl: "StreamingAssets",
+    companyName: "iLawn",
+    productName: "SeaBattle3D",
+    productVersion: "0.1",
+  };
+  var container = document.querySelector("#unity-container");
+  var canvas = document.querySelector("#unity-canvas");
+  var loadingBar = document.querySelector("#unity-loading-bar");
+  var progressBarFull = document.querySelector("#unity-progress-bar-full");
+
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    container.className = "unity-mobile";
+    config.devicePixelRatio = 1;
+  } else {
+    canvas.style.width = "1080px";
+    canvas.style.height = "640px";
+  }
+  loadingBar.style.display = "block";
+
+  var script = document.createElement("script");
+  var unityInstance;
+  script.src = loaderUrl;
+  script.onload = () => {
+    createUnityInstance(canvas, config, (progress) => {
+      progressBarFull.style.width = 100 * progress + "%";
+    }).then((ui) => {
+      unityInstance = ui;
+      loadingBar.style.display = "none";
+      // show select play
+
+    })
+  };
+  document.body.appendChild(script);
+
+  //send device rotation to unity
+  function doOnOrientationChange(dat) {
+    unityInstance.SendMessage('BattleScene', 'ReceivedBrowserData', dat);
+  };
+
+  //send single to unity
+  function setSinglePlay() {
+    unityInstance.SendMessage('BattleScene', 'setSinglePlay');
+  };
+  //send set multiplayer to unity
+  function setMultiPlay() {
+    unityInstance.SendMessage('BattleScene', 'setMultiPlay');
+  };
+
+  const assets = [
+    buildUrl + "/seabattle3dfacebook.loader.js",
+    buildUrl + "/seabattle3dfacebook.data",
+    buildUrl + "/seabattle3dfacebook.framework.js",
+    buildUrl + "/seabattle3dfacebook.wasm"
+  ];
+
+  window.onload = function () {
+    FBInstant.initializeAsync()
+      .then(function () {
+        FBInstant.startGameAsync().then(function () {
+          // We can start to load assets
+          for (let i in assets) {
+            // When preloading assets, make sure to report the progress
+            FBInstant.setLoadingProgress(i / assets.length * 100);
+          }
+          onStart();
+          //all players connected to game
+          var connectedPlayers = FBInstant.player.getConnectedPlayersAsync()
+            .then(function (players) {
+              console.log(players.map(function (player) {
+                return {
+                  id: player.getID(),
+                  name: player.getName(),
+                }
+              }));
+            });
+        })
+      })
+  };
+
+  function onStart() {
+    localStorage.clear();
+  }
+
+  function socketConnector() {
+
+    socket = io('http://sbgame-backend.herokuapp.com');
+    socket.on("connect", function () {
+      console.log('connect');
+      // call reconnect room / get opponent
+      reConnect();
+    });
+    socket.on("event", function (data) {
+      console.log('event ' + data);
+    });
+    socket.on("disconnect", function () {
+      console.log('disconnect');
+    });
+    //income when client stand all ships
+    socket.on("sendReady", function () {
+      console.log('recived ready');
+      unityInstance.SendMessage('BattleScene', 'ReceivedReady');
+
+    });
+    //income when client shoting
+    socket.on("sendTurn", (data, opponent) => {
+      const dataString = JSON.stringify(data);
+      //send to unity
+      //if (opponent != socket.id) {
+      console.log('turn in from ' + opponent);
+      unityInstance.SendMessage('BattleScene', 'ReceivedShot', dataString);
+      //}
+    });
+    //income when client have shotIn ship
+    socket.on("shotIn", (data, opponent) => {
+      const dataString = JSON.stringify(data);
+      console.log('shot in ' + data);
+      //send to unity
+      unityInstance.SendMessage('BattleScene', 'ShotInEnemy', dataString);
+    });
+
+    socket.on("setActive", function () {
+      console.log('setActive');
+      unityInstance.SendMessage('BattleScene', 'SetActive');
+    });
+
+    socket.on("gameLose", (loser) => {
+      console.log('game lose ' + loser);
+      if (socket.id == loser)
+      unityInstance.SendMessage('BattleScene', 'EndGame', 'lose');
+      else
+      unityInstance.SendMessage('BattleScene', 'EndGame', 'win');
+    });
+
+    //income when any connect to room /if second - send socket.io
+    socket.on("connectRoom", (data, id) => {
+      console.log(id + ' conncet to room ' + data);
+      contextid = getOrCreateContextId();
+      localStorage.setItem('contextid', contextid);
+      console.log('connect to ' + contextid + ' socket id ' + socket.id);
+      if (data == contextid && id != socket.id) {
+        curOpponentId = id;
+        localStorage.setItem("curOpponentId", curOpponentId);
+        console.log('curent opponent ' + curOpponentId);
+        sendOpponentId();
+        $('#data').html('');
+      }
+    });
+    //income when first send seft socket.io
+    socket.on("receivedOpponent", (data) => {
+      if (localStorage.curOpponentId == null)
+        localStorage.curOpponentId = data;
+    });
+  }
+  //send when second client connect
+  function sendOpponentId() {
+    socket.emit('sendOpponent', getOrCreateContextId(), socket.id);
+    console.log('send to room ' + localStorage.contextid + " opponent " + socket.id);
+  }
+  //call from socket
+  function reConnect() {
+    if (localStorage.contextid != null) {
+      socket.emit("joinRoom", localStorage.contextid);
+      // retake opponent
+    }
+  }
+  //call from plugin/unity
+  function ShotIn(data) {
+    console.log('received shotIn ' + data);
+    socket.emit("shotIn", data, localStorage.curOpponentId, localStorage.contextid);
+    $('#data').html('WAITING OTHER PLAYER SHOT');
+  }
+  //call from plugin/unity
+  function SetPlayerReady() {
+    var context = getOrCreateContextId();
+    console.log('send ready ');
+    socket.emit("sendReady", context);
+  }
+  //call from plugin/unity
+  function SendShot(data) {
+    //var dataString = JSON.stringify(data);
+    console.log('send turn data ' + data + ' to opponent ' + localStorage.curOpponentId);
+    socket.emit("sendTurn", data, localStorage.curOpponentId);
+  }
+  // connect to room=FBcontextId
+  function joinRoom() {
+    var curContext = getOrCreateContextId();
+    console.log('room connect to ' + curContext);
+    socket.emit("joinRoom", curContext);
+  }
+
+  function SetActiveOther() {
+    socket.emit("setActive", localStorage.curOpponentId, localStorage.contextid);
+  }
+
+  function GameLOse() {
+    socket.emit("gameLose", socket.id);
+  }
+
+  function playRandom() {
+    FBInstant.matchPlayerAsync()
+      .then(function () {
+        socketConnector();
+        joinRoom();
+        setMultiPlay();
+
+      }).catch(function () {
+        console.log('no match');
+        //SinglePlay();
+        //setSinglePlay();
+      })
+  }
+
+  function playFriend() {
+    FBInstant.player.getConnectedPlayersAsync()
+      .then(function (players) {
+        console.log(players);
+        chooseContext();
+      });
+    FBInstant.context.getPlayersAsync()
+      .then(function (players) {
+        console.log(players);
+      });
+  }
+
+  function WaitConnectPLayer () {
+    $('#pre-game').hide();
+    $('#data').html('WAITING');
+  }
+
+  function chooseContext() {
+    FBInstant.context.chooseAsync().then(function () {
+      updateContextInfo();
+      WaitConnectPLayer();
+    });
+  }
+
+  function updateContextInfo() {
+    $('#context-id').html(FBInstant.context.getID());
+    $('#context-type').html(FBInstant.context.getType());
+
+    if (FBInstant.context.getType() === 'SOLO') {
+      display.error('Cannot send a message into a SOLO context. Try choosing another context');
+    } else {
+      display.clear();
+      socketConnector();
+      joinRoom();
+      getOppnentName();
+      setMultiPlay();
+    }
+  }
+
+  function getOppnentName() {
+    var contextid = getOrCreateContextId();
+    var curplayer = FBInstant.player.getID();
+    FBInstant.context.getPlayersAsync()
+      .then(function (players) {
+        console.log(players.map(function (player) {
+          if (curplayer != player.getID()) {
+            curOpponentName = player.getName();
+            console.log('cur opp - ' + curOpponentName);
+            //$('#data').html(curOpponentName + ' READY');
+            unityInstance.SendMessage('BattleScene', 'SetPlayerNames', curOpponentName);
+          }
+          return {
+            id: player.getID(),
+            name: player.getName(),
+          }
+        }));
+      });
+  }
+
+  function playBot() {
+    //send to unityInstance
+    $('#pre-game').hide();
+    $('#data').html('PLAY WITH BOT');
+    setSinglePlay();
+  }
+
+  function getOrCreateContextId() {
+    if (FBInstant.context.getType() == 'SOLO') {
+      return FBInstant.player.getID() + '_SOLO';
+    }
+    return FBInstant.context.getID();
+  }
+
+</script>
+
+</html>
