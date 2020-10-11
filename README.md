@@ -9,5 +9,4 @@
 
 **/game-backend-Node.js+.JS** - Node.js/Express/Sql/Socket.io - backend for game communication and save game data
 
-![Screenshot]
-(https://github.com/iLawnman/SeabattleFBmultiplayer/blob/main/Screenshot.png)
+![Screenshot](https://github.com/iLawnman/SeabattleFBmultiplayer/blob/main/Screenshot.png)
