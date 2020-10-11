@@ -10,6 +10,7 @@ public class MobileController : MonoBehaviour
 {
     [DllImport("__Internal")]
     private static extern bool IsMobileBrowser();
+
     public bool isMobilePladform;
     public GameObject PlayerFeild;
     public GameObject otherPlayerField;
@@ -29,53 +30,22 @@ public class MobileController : MonoBehaviour
 
     private void Update()
     {
-        //if (Input.GetKeyDown(KeyCode.F5))
-        //{
-        //    tmpLand = !tmpLand;
 
-        //    if (tmpLand)
-        //    {
-        //        ChangeLandscape();
-        //    }
-
-        //    else
-        //    {
-        //        ChangePortrait();
-        //    }
-        //}
     }
     // Start is called before the first frame update
     void Start()
     {
         infoText.text = nonMobileTxt;
 
+#if !UNITY_EDITOR && UNITY_WEBGL
         if (IsMobileBrowser())
         {
             infoText.text = mobileTxt;
             isMobilePladform = true;
         }
+#endif
     }
-
-    public void ReceiveShot(string shotdata)
-    {
-        Debug.Log("Rec shot " + shotdata);
-        //parse string to int
-        //string shotData = "Player: " + gameObject.name + "\nPlace: " + place.ToString();
-        Vector3Int shot = new Vector3Int();
-        List<string> strArray = shotdata.Split(new char[] { '\n' }).ToList();
-
-        foreach(string data in strArray)
-        {
-            if (data.Contains("Place")) {
-                data.Replace("Place", "");
-                List<string> intArray = data.Split(new char[] { ';' }).ToList();
-                shot = new Vector3Int(int.Parse(intArray[0]), int.Parse(intArray[1]), int.Parse(intArray[2]));
-             }
-        }
-        //check local player, send for him
-            PlayerFeild.GetComponent<PlayerManager>().CheckIncomeShot(shot);
-    }
-
+    //change screen for mobile browser
     public void ReceivedBrowserData(int orientation)
     {
         if (orientation == 0)

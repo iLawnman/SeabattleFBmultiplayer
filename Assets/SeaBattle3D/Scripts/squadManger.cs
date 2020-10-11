@@ -15,14 +15,14 @@ public class squadManger : MonoBehaviour
     // chenge to interface
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F1))
-            AddToSquad(1);
-        if (Input.GetKeyDown(KeyCode.F2))
-            AddToSquad(2);
-        if (Input.GetKeyDown(KeyCode.F3))
-            AddToSquad(3);
-        if (Input.GetKeyDown(KeyCode.F4))
-            AddToSquad(4);
+        //if (Input.GetKeyDown(KeyCode.F1))
+        //    AddToSquad(1);
+        //if (Input.GetKeyDown(KeyCode.F2))
+        //    AddToSquad(2);
+        //if (Input.GetKeyDown(KeyCode.F3))
+        //    AddToSquad(3);
+        //if (Input.GetKeyDown(KeyCode.F4))
+        //    AddToSquad(4);
     }
 
     void AddToSquad (int quantity)

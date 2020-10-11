@@ -3,14 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
-using System.Runtime.InteropServices;
 using UnityEngine.UI;
 
 public class PlayerManager : MonoBehaviour
 {
-    [DllImport("__Internal")]
-    private static extern void SendShot(string str);
-
     public List<Vector3Int> cubes;
     public List<GameObject> cubesGo;
     public List<GameObject> ships;
@@ -33,15 +29,18 @@ public class PlayerManager : MonoBehaviour
 
     public Text tmpTouch;
 
-    // Start is called before the first frame update
-    void OnEnable()
+    private void OnEnable()
     {
-        sessionManager = FindObjectOfType<SessionManager>();
+        if (sqManager.squad.Count > 0)
+            editedShip = sqManager.squad[0];
+    }
+    //read all data from game field
+    public void StartPlay()
+    {
         GetAllData();
         GetCubesCoord();
-        editedShip = sqManager.squad[0];
     }
-
+    //collect all cubes of ships
     void GetCubesCoord()
     {
         cubes.Clear();
@@ -57,7 +56,7 @@ public class PlayerManager : MonoBehaviour
             }
         }
     }
-
+    //helper for data collect
     void GetAllData ()
     {
         cubesGo.Clear();
@@ -74,13 +73,13 @@ public class PlayerManager : MonoBehaviour
                 }
         }
     }
-
+    //get ship object from gameobject
     GameObject GetShipByCube (GameObject cube)
     {
         GameObject ship = ships.Find(x => x == cube.transform.parent.gameObject);
         return ship;
     }
-
+    //get all cubes by ship gameobject
     List<Vector3Int> GetCubesByShip(GameObject ship)
     {
         List<Vector3Int> cubes = new List<Vector3Int>();
@@ -91,13 +90,13 @@ public class PlayerManager : MonoBehaviour
         }
         return cubes;
     }
-
+    //helper for transform coord
     Vector3Int Vect3ToVect3Int (Vector3 vect, Transform parent)
     {
         Vector3Int coord = Vector3Int.RoundToInt(parent.transform.InverseTransformPoint(vect));
         return coord;
     }
-
+    //get gameobject by Vector3Int
     GameObject GetCubeByCoord(Vector3Int vector)
     {
         if (cubes.Contains(vector))
@@ -110,13 +109,13 @@ public class PlayerManager : MonoBehaviour
         }
         return null;
     }
-
+    //helper
     GameObject GetCubeByHit (RaycastHit hit)
     {
         GameObject cube = GetCubeByCoord(Vect3ToVect3Int(hit.point, transform));
         return cube;
     }
-
+    //check posible place for ship stand
     void CheckPlaceForShip (Vector3Int place)
     {
         var oldPosition = editedShip.transform.localPosition;
@@ -127,7 +126,7 @@ public class PlayerManager : MonoBehaviour
             editedShip.transform.localPosition = oldPosition;
         }
     }
-
+    //check ship inside game field
     bool CheckOutField (GameObject ship)
     {
         var shipCubes = GetCubesByShip(ship);
@@ -139,7 +138,7 @@ public class PlayerManager : MonoBehaviour
         }
         return true;
     }
-
+    //check for touch ship others
     private bool CheckAroundShip(GameObject ship)
     {
         var shiCubes = GetCubesByShip(ship);
@@ -153,7 +152,7 @@ public class PlayerManager : MonoBehaviour
         }
         return true;
     }
-
+    //add to Vector3Int list forbiden places for ship
     void AddPlaceDeadZone (GameObject ship)
     {
         var shipCubes = GetCubesByShip(ship);
@@ -173,30 +172,36 @@ public class PlayerManager : MonoBehaviour
         }
         placeDeadZone = placeDeadZone.Distinct().ToList();
     }
-
+    //drop ship in current position and take next ship for place
     void PlaceAndNextShip()
     {
-        AddPlaceDeadZone(editedShip);
-        GetshipDataAndSetStatus(editedShip, status.placed);
+        shipsData lShip = new shipsData();
+        lShip.go = editedShip;
+        lShip.status = status.placed;
+        localShips.Add(lShip);
+
         sqManager.squad.Remove(editedShip);
+        AddPlaceDeadZone(editedShip);
 
         if (sqManager.squad.Count > 0)
         {
             editedShip = sqManager.squad[0];
+            editedShip.transform.localPosition = new Vector3(-2, 0, 0);
         }
         else
         {
             editedShip = null;
-            FindObjectOfType<SessionManager>().SetPlayerRady(gameObject.name);
-            //this.enabled = false;
+            sessionManager.readyForShot = true;
+            sessionManager.SayReady();
+            StartPlay();
         }
     }
-
+    //rotate
     void RoatetShip ()
     {
         editedShip.transform.Rotate(transform.up, 90);
     }
-
+    //check income shot for single play
     public void CheckIncomeShot (Vector3Int place)
     {
         Debug.Log("Income shot");
@@ -210,7 +215,7 @@ public class PlayerManager : MonoBehaviour
             CheckShipStatusDie(shi);
         }
     }
-
+    //check ship status die
     bool CheckShipStatusDie (GameObject ship)
     {
         foreach (GameObject lship in ships)
@@ -227,14 +232,24 @@ public class PlayerManager : MonoBehaviour
         //send data ship die to other fb player
         return true;
     }
-
-    void GetshipDataAndSetStatus (GameObject ship, status stat)
+    //check game status for all ships die
+    public bool CheckAllShipStatusDie ()
     {
+        foreach (shipsData ship in localShips)
+        {
+            if (ship.status == status.die)
+                return true;
+        }
+        return false;
+    }
+    //set status ship
+    void GetshipDataAndSetStatus (GameObject ship, status stat)
+    { 
         var shi = localShips.Find(x => x.go == ship);
         shi.status = stat;
     }
 
-    //
+    //check shot in ship for single game
     bool CheckShotInShip (Vector3Int inshot)
     {
         foreach (Vector3Int cube in cubes)
@@ -251,17 +266,24 @@ public class PlayerManager : MonoBehaviour
         }
         return false;
     }
-
+    //do shot
     void DoShot (Vector3Int place)
     {
         var shot = Instantiate(shotPref, otherPlayerField.transform);
         shot.transform.localPosition = place;
+        if (!cubes.Contains(place))
+        {
+            sessionManager.currentPlayer = SessionManager.ActivePlayer.Player2;
+            sessionManager.player1button.color = Color.red;
+            sessionManager.player2button.color = Color.green;
 
-        string shotData = "Player: " + gameObject.name + "\nPlace: " + place.ToString();
-        //debug
-        //CheckIncomeShot(place);
-        //send to other
-        SendShot(shotData);
+        }
+        else
+        {
+            sessionManager.player1button.color = Color.green;
+            sessionManager.player2button.color = Color.red;
+        }
+        sessionManager.SendingShot(place);
     }
 
     // Update is called once per frame
@@ -293,7 +315,8 @@ public class PlayerManager : MonoBehaviour
             }
             else
             {
-                if (hit.collider.CompareTag("Field") && hit.collider != gameObject.GetComponentInChildren<Collider>())
+                if (sessionManager.currentPlayer == SessionManager.ActivePlayer.Player1 && hit.collider.CompareTag("Field")
+                    && hit.collider != gameObject.GetComponentInChildren<Collider>())
                 {
                     // hit to other player fileld
                     tmpTouch.text = Vect3ToVect3Int(hit.point, otherPlayerField.transform).ToString();
