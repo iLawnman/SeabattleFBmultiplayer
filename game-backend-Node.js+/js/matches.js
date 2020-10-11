@@ -163,7 +163,7 @@ module.exports = function (app) {
             var firstpart = signedRequest.split('.')[0];
             firstpart = firstpart.replace(/-/g, '+').replace(/_/g, '/');
             const signature = CryptoJS.enc.Base64.parse(firstpart).toString();
-            const dataHash = CryptoJS.HmacSHA256(signedRequest.split('.')[1], '52079dda24d1ea300e67a3eb23422230').toString();
+            const dataHash = CryptoJS.HmacSHA256(signedRequest.split('.')[1], 'SECRET').toString();
             var isValid = signature === dataHash;
             const json = CryptoJS.enc.Base64.parse(signedRequest.split('.')[1]).toString(CryptoJS.enc.Utf8);
             const data = JSON.parse(json);
