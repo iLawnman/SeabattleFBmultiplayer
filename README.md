@@ -1,4 +1,4 @@
-##Seabattle Facebook multiplayer instant game project
+## Seabattle Facebook multiplayer instant game project
  
 **Assets** - Unity project for WebGL build
 
