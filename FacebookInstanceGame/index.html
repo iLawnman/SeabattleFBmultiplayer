@@ -185,7 +185,7 @@
 
   function socketConnector() {
 
-    socket = io('http://sbgame-backend.herokuapp.com');
+    socket = io('SERVER');
     socket.on("connect", function () {
       console.log('connect');
       // call reconnect room / get opponent
